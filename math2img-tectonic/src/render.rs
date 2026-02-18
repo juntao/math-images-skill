@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use std::io::{BufRead, BufReader, BufWriter};
+use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::process::Command;
 
@@ -65,7 +65,7 @@ fn wrap_equation(content: &str, is_display: bool, theme: &Theme, font_size: f32)
     };
 
     format!(
-        r#"\documentclass[preview,border=12pt,varwidth=80cm]{{standalone}}
+        r#"\documentclass[border=12pt,varwidth=80cm]{{standalone}}
 \usepackage{{amsmath}}
 \usepackage{{amssymb}}
 \usepackage{{amsfonts}}
@@ -162,7 +162,25 @@ pub fn render_equation(
     Ok(())
 }
 
+/// Detect the actual background color by sampling corner pixels.
+fn detect_background(buf: &[u8], width: usize, height: usize, channels: usize) -> [u8; 3] {
+    let corners = [
+        (0, 0),
+        (width.saturating_sub(1), 0),
+        (0, height.saturating_sub(1)),
+        (width.saturating_sub(1), height.saturating_sub(1)),
+    ];
+    // Use the top-left corner; all corners should be background in a rendered equation.
+    let idx = (corners[0].1 * width + corners[0].0) * channels;
+    if idx + 2 < buf.len() {
+        [buf[idx], buf[idx + 1], buf[idx + 2]]
+    } else {
+        [255, 255, 255]
+    }
+}
+
 /// Read a PNG, find the bounding box of non-background pixels, crop with padding, re-encode.
+/// If the actual background differs from the desired theme background, recolor it.
 fn autocrop_png(path: &Path, theme: &Theme) -> Result<Vec<u8>> {
     let file = BufReader::new(std::fs::File::open(path)?);
     let decoder = png::Decoder::new(file);
@@ -181,16 +199,18 @@ fn autocrop_png(path: &Path, theme: &Theme) -> Result<Vec<u8>> {
         _ => bail!("Unsupported PNG color type: {:?}", info.color_type),
     };
 
-    let bg = theme.bg_color();
+    // Detect what the renderer actually used as background
+    let actual_bg = detect_background(&buf, width, height, channels);
+    let desired_bg = theme.bg_color();
     let tolerance = 30u8; // allow slight antialiasing differences
 
     let is_bg = |idx: usize| -> bool {
         let r = buf[idx];
         let g = buf[idx + 1];
         let b = buf[idx + 2];
-        r.abs_diff(bg[0]) <= tolerance
-            && g.abs_diff(bg[1]) <= tolerance
-            && b.abs_diff(bg[2]) <= tolerance
+        r.abs_diff(actual_bg[0]) <= tolerance
+            && g.abs_diff(actual_bg[1]) <= tolerance
+            && b.abs_diff(actual_bg[2]) <= tolerance
     };
 
     // Find content bounds
@@ -212,7 +232,7 @@ fn autocrop_png(path: &Path, theme: &Theme) -> Result<Vec<u8>> {
     }
 
     if min_x > max_x || min_y > max_y {
-        // All background — return original
+        // All background — return image filled with desired background
         return Ok(std::fs::read(path)?);
     }
 
@@ -237,12 +257,33 @@ fn autocrop_png(path: &Path, theme: &Theme) -> Result<Vec<u8>> {
         (cy0, cy1, ch)
     };
 
-    // Build cropped buffer
+    // Build cropped buffer, recoloring background if needed
+    let need_recolor = actual_bg != desired_bg;
     let mut cropped = Vec::with_capacity(cw * ch * channels);
-    for y in cy0..cy1 {
-        let row_start = (y * width + cx0) * channels;
-        let row_end = (y * width + cx1) * channels;
-        cropped.extend_from_slice(&buf[row_start..row_end]);
+    if !need_recolor {
+        // Fast path: backgrounds match, just copy rows
+        for y in cy0..cy1 {
+            let row_start = (y * width + cx0) * channels;
+            let row_end = (y * width + cx1) * channels;
+            cropped.extend_from_slice(&buf[row_start..row_end]);
+        }
+    } else {
+        // Slow path: replace actual background with desired background
+        for y in cy0..cy1 {
+            for x in cx0..cx1 {
+                let idx = (y * width + x) * channels;
+                if is_bg(idx) {
+                    cropped.push(desired_bg[0]);
+                    cropped.push(desired_bg[1]);
+                    cropped.push(desired_bg[2]);
+                    if channels == 4 {
+                        cropped.push(buf[idx + 3]);
+                    }
+                } else {
+                    cropped.extend_from_slice(&buf[idx..idx + channels]);
+                }
+            }
+        }
     }
 
     // Encode
