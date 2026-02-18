@@ -12,6 +12,8 @@ This tool ships as an [OpenClaw](https://github.com/openclaw/openclaw) skill. In
 
 Once installed, send your agent a LaTeX or Markdown file and ask it to create images for the math equations. It will extract each equation, render it as a PNG image, and send the images back.
 
+> **Note:** The OpenClaw agent skill uses `math2img` (pure Rust) exclusively — it requires no external dependencies and works out of the box. If you need publication-quality rendering with full LaTeX fidelity, you can install and use `math2img-tectonic` manually as a standalone CLI tool (see [Two Rendering Backends](#two-rendering-backends) below).
+
 ## What It Does
 
 Give it a LaTeX or Markdown file containing math equations:
