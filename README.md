@@ -42,11 +42,35 @@ Get back publication-quality PNG images for each equation — ready to embed in 
 - **STIX Two Math font** — Embedded font for consistent, high-quality rendering
 - **Single binary** — No runtime dependencies, statically linked on Linux
 
+## Two Rendering Backends
+
+This project provides two tools with the same CLI interface but different rendering approaches:
+
+### `math2img` — Pure Rust (default)
+
+- **Zero runtime dependencies** — single static binary, nothing else needed
+- **Fast** — renders 67 equations in ~0.15 seconds
+- Renders math using the embedded STIX Two Math font and a custom layout engine
+- Supports 100+ LaTeX commands covering common math notation
+- Best for: AI agents, quick previews, environments where installing TeX is impractical
+
+### `math2img-tectonic` — Tectonic TeX Engine
+
+- **Publication-perfect rendering** — uses a real TeX engine (Tectonic/XeTeX) with Computer Modern fonts
+- **Full LaTeX support** — anything that compiles in LaTeX works here, including `tikz`, custom packages, etc.
+- Requires `tectonic` and `pdftoppm` (poppler) installed at runtime
+- Slower (~12 seconds for 67 equations) since each equation compiles a full LaTeX document
+- Best for: publications, archival quality, complex math that exceeds the pure Rust parser
+
+Both tools share the same equation extraction logic and CLI interface (`-i`, `-o`, `--theme`, `--font-size`, `--scale`).
+
 ## Installation
 
 ### Pre-built Binaries
 
 Download from [Releases](https://github.com/juntao/math-images-skill/releases/latest):
+
+**math2img (pure Rust, no dependencies):**
 
 | Platform | File |
 |----------|------|
@@ -56,12 +80,41 @@ Download from [Releases](https://github.com/juntao/math-images-skill/releases/la
 | macOS Apple Silicon | `math-images-darwin-aarch64.zip` |
 | Windows x86_64 | `math-images-windows-x86_64.zip` |
 
+**math2img-tectonic (TeX quality, requires tectonic + pdftoppm):**
+
+| Platform | File |
+|----------|------|
+| Linux x86_64 (static) | `math-images-tectonic-linux-x86_64.zip` |
+| Linux aarch64 (static) | `math-images-tectonic-linux-aarch64.zip` |
+| macOS Intel | `math-images-tectonic-darwin-x86_64.zip` |
+| macOS Apple Silicon | `math-images-tectonic-darwin-aarch64.zip` |
+| Windows x86_64 | `math-images-tectonic-windows-x86_64.zip` |
+
+### Runtime Dependencies for math2img-tectonic
+
+```bash
+# macOS
+brew install tectonic poppler
+
+# Ubuntu/Debian
+apt-get install tectonic poppler-utils
+
+# Arch
+pacman -S tectonic poppler
+```
+
 ### Build from Source
 
 ```bash
+# Pure Rust version
 cd math2img
 cargo build --release
 # Binary at: target/release/math2img
+
+# Tectonic version
+cd math2img-tectonic
+cargo build --release
+# Binary at: target/release/math2img-tectonic
 ```
 
 ## Usage

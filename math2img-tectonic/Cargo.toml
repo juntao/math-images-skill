@@ -1,0 +1,21 @@
+[package]
+name = "math2img-tectonic"
+version = "0.1.0"
+edition = "2021"
+description = "Extract math equations from LaTeX/Markdown and render as PNG images using Tectonic TeX engine"
+license = "MIT"
+
+[[bin]]
+name = "math2img-tectonic"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+png = "0.18"
+regex-lite = "0.1"
+tempfile = "3"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
