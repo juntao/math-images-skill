@@ -1,0 +1,21 @@
+[package]
+name = "math2img"
+version = "0.1.0"
+edition = "2021"
+description = "Extract math equations from LaTeX/Markdown and render as PNG images"
+license = "MIT"
+
+[[bin]]
+name = "math2img"
+path = "src/main.rs"
+
+[dependencies]
+png = "0.18"
+ab_glyph = "0.2"
+regex-lite = "0.1"
+anyhow = "1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
