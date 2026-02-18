@@ -36,14 +36,15 @@ Once installed, send your agent a LaTeX or Markdown file and ask it to create im
 
 - The OpenClaw agent skill uses `math2img` (pure Rust) exclusively — it requires no external dependencies and works out of the box. If you need publication-quality rendering with full LaTeX fidelity, you can install and use `math2img-tectonic` manually as a standalone CLI tool (see [Two Rendering Backends](#two-rendering-backends) below).
 
-- **Switching to `math2img-tectonic` as the default:** If you have `tectonic` and `pdftoppm` installed and want the agent to always use the Tectonic backend, simply replace the binary after installation:
+- **Switching to `math2img-tectonic` as the default:** Both binaries are installed by the bootstrap script. If you have `tectonic` and `pdftoppm` installed and want the agent to always use the Tectonic backend, simply swap the binary:
 
   ```bash
   cd ~/.openclaw/skills/math-images/scripts
+  mv math2img math2img-pure
   mv math2img-tectonic math2img
   ```
 
-  This makes the agent use the Tectonic backend transparently — no other configuration changes needed.
+  This makes the agent use the Tectonic backend transparently — no other configuration changes needed. To revert, swap them back.
 
 ## What It Does
 

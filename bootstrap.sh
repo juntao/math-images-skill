@@ -33,43 +33,33 @@ detect_platform() {
     echo "${os}-${arch}"
 }
 
-get_download_url() {
+download_and_extract() {
     local platform="$1"
-    local artifact_name="math-images-${platform}.zip"
+    local artifact_prefix="$2"
+    local binary_name="$3"
+    local url
+
+    local artifact_name="${artifact_prefix}-${platform}.zip"
     local api_url="https://api.github.com/repos/${REPO}/releases/latest"
-    local download_url
 
     if command -v curl &>/dev/null; then
-        download_url=$(curl -sL "$api_url" | grep -o "https://github.com/${REPO}/releases/download/[^\"]*${artifact_name}" | head -1)
+        url=$(curl -sL "$api_url" | grep -o "https://github.com/${REPO}/releases/download/[^\"]*${artifact_name}" | head -1)
     elif command -v wget &>/dev/null; then
-        download_url=$(wget -qO- "$api_url" | grep -o "https://github.com/${REPO}/releases/download/[^\"]*${artifact_name}" | head -1)
-    else
-        echo "Error: Neither curl nor wget found." >&2
-        exit 1
+        url=$(wget -qO- "$api_url" | grep -o "https://github.com/${REPO}/releases/download/[^\"]*${artifact_name}" | head -1)
     fi
 
-    if [ -z "$download_url" ]; then
-        echo "Error: Could not find release for platform ${platform}" >&2
-        echo "Check https://github.com/${REPO}/releases for available downloads." >&2
-        exit 1
+    if [ -z "$url" ]; then
+        echo "Warning: Could not find release for ${binary_name} (${platform}), skipping." >&2
+        return 1
     fi
 
-    echo "$download_url"
-}
-
-download_binary() {
-    local platform="$1"
-    local url="$2"
-    local temp_dir
-
-    echo "Downloading math2img for ${platform}..." >&2
-
-    mkdir -p "${SCRIPTS_DIR}"
-
-    temp_dir=$(mktemp -d)
-    local zip_file="${temp_dir}/math-images-${platform}.zip"
-
+    echo "Downloading ${binary_name} for ${platform}..." >&2
     echo "Fetching from: ${url}" >&2
+
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    local zip_file="${temp_dir}/${artifact_name}"
+
     if command -v curl &>/dev/null; then
         curl -sL -o "$zip_file" "$url"
     else
@@ -82,16 +72,16 @@ download_binary() {
     else
         echo "Error: unzip not found." >&2
         rm -rf "$temp_dir"
-        exit 1
+        return 1
     fi
 
     if [[ "$(uname -s)" != MINGW* ]] && [[ "$(uname -s)" != MSYS* ]] && [[ "$(uname -s)" != CYGWIN* ]]; then
-        chmod +x "${SCRIPTS_DIR}/math2img"
+        chmod +x "${SCRIPTS_DIR}/${binary_name}" 2>/dev/null || true
     fi
 
     rm -rf "$temp_dir"
-
-    echo "math2img installed to ${SCRIPTS_DIR}" >&2
+    echo "${binary_name} installed to ${SCRIPTS_DIR}" >&2
+    return 0
 }
 
 main() {
@@ -99,10 +89,13 @@ main() {
     platform=$(detect_platform)
     echo "Detected platform: ${platform}" >&2
 
-    local download_url
-    download_url=$(get_download_url "$platform")
+    mkdir -p "${SCRIPTS_DIR}"
 
-    download_binary "$platform" "$download_url"
+    # Install math2img (pure Rust, primary)
+    download_and_extract "$platform" "math-images" "math2img"
+
+    # Install math2img-tectonic (TeX backend, optional use)
+    download_and_extract "$platform" "math-images-tectonic" "math2img-tectonic" || true
 
     echo "" >&2
     echo "Installed:" >&2
