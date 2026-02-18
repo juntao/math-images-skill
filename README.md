@@ -32,13 +32,18 @@ This tool ships as an [OpenClaw](https://github.com/openclaw/openclaw) skill. In
 
 Once installed, send your agent a LaTeX or Markdown file and ask it to create images for the math equations. It will extract each equation, render it as a PNG image, and send the images back.
 
-> **Note:** The OpenClaw agent skill uses `math2img` (pure Rust) exclusively — it requires no external dependencies and works out of the box. If you need publication-quality rendering with full LaTeX fidelity, you can install and use `math2img-tectonic` manually as a standalone CLI tool (see [Two Rendering Backends](#two-rendering-backends) below).
+### Notes
 
-> **Switching to `math2img-tectonic` as the default:** If you have `tectonic` and `pdftoppm` installed and want the agent to always use the Tectonic backend, run the following after installation to update the skill configuration:
-> ```bash
-> tmp=$(mktemp) && sed 's/math2img/math2img-tectonic/g' ~/.openclaw/skills/math-images/SKILL.md > "$tmp" && mv "$tmp" ~/.openclaw/skills/math-images/SKILL.md
-> ```
-> This replaces all references to `math2img` with `math2img-tectonic` in the skill definition. The command works on both macOS and Linux (including slim containers).
+- The OpenClaw agent skill uses `math2img` (pure Rust) exclusively — it requires no external dependencies and works out of the box. If you need publication-quality rendering with full LaTeX fidelity, you can install and use `math2img-tectonic` manually as a standalone CLI tool (see [Two Rendering Backends](#two-rendering-backends) below).
+
+- **Switching to `math2img-tectonic` as the default:** If you have `tectonic` and `pdftoppm` installed and want the agent to always use the Tectonic backend, simply replace the binary after installation:
+
+  ```bash
+  cd ~/.openclaw/skills/math-images/scripts
+  mv math2img-tectonic math2img
+  ```
+
+  This makes the agent use the Tectonic backend transparently — no other configuration changes needed.
 
 ## What It Does
 
