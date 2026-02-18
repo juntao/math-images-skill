@@ -4,26 +4,6 @@ Generate PNG images from math equations in LaTeX/TeX and Markdown documents. Bui
 
 ![Rust](https://img.shields.io/badge/rust-stable-orange) ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
-## Examples
-
-Given the following LaTeX equations:
-
-```latex
-\begin{equation}
-D(q, m, q', m') = \sqrt{\sum_{j=0}^{z-1} \left(\frac{\sum_{i=0}^{n-1} x_{j,i}(q,m) - \sum_{i=0}^{n-1} x_{j,i}(q',m')}{n}\right)^2}
-\end{equation}
-```
-
-![Distance function](examples/distance_function.png)
-
-```latex
-\begin{equation}
-\sigma_j(q,m) = \sqrt{\frac{\sum_{i=0}^{n-1} \left(x_{j,i} - \frac{\sum_{i=0}^{n-1} x_{j,i}}{n}\right)^2}{n}}
-\end{equation}
-```
-
-![Standard deviation](examples/standard_deviation.png)
-
 ## Quick Start
 
 This tool ships as an [OpenClaw](https://github.com/openclaw/openclaw) skill. Install it by telling your AI agent:
@@ -64,6 +44,26 @@ c & d
 ```
 
 Get back publication-quality PNG images for each equation — ready to embed in blog posts, presentations, chat messages, or anywhere that doesn't support LaTeX rendering natively.
+
+## Examples
+
+Given the following LaTeX equations:
+
+```latex
+\begin{equation}
+D(q, m, q', m') = \sqrt{\sum_{j=0}^{z-1} \left(\frac{\sum_{i=0}^{n-1} x_{j,i}(q,m) - \sum_{i=0}^{n-1} x_{j,i}(q',m')}{n}\right)^2}
+\end{equation}
+```
+
+![Distance function](examples/distance_function.png)
+
+```latex
+\begin{equation}
+\sigma_j(q,m) = \sqrt{\frac{\sum_{i=0}^{n-1} \left(x_{j,i} - \frac{\sum_{i=0}^{n-1} x_{j,i}}{n}\right)^2}{n}}
+\end{equation}
+```
+
+![Standard deviation](examples/standard_deviation.png)
 
 ## Features
 
