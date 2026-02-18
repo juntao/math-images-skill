@@ -208,11 +208,12 @@ fn measure(font: &FontRef, sf: &ab_glyph::PxScaleFont<&FontRef>, node: &MathNode
             let d = measure(font, &nsf, den, ns);
             let rule = size * 0.05;
             let gap = size * 0.15;
+            let axis_offset = size * 0.22;
             let w = n.width.max(d.width) + size * 0.3;
             Dims {
                 width: w,
-                ascent: n.height() + gap + rule / 2.0,
-                descent: d.height() + gap + rule / 2.0,
+                ascent: n.height() + gap + rule / 2.0 + axis_offset,
+                descent: (d.height() + gap + rule / 2.0 - axis_offset).max(d.height() * 0.5),
             }
         }
 
@@ -258,10 +259,14 @@ fn measure(font: &FontRef, sf: &ab_glyph::PxScaleFont<&FontRef>, node: &MathNode
         MathNode::Sqrt(content) => {
             let c = measure(font, sf, content, size);
             let rad_w = size * 0.5;
+            // Overline bar drawn at c.ascent + size*0.1 above baseline;
+            // radical glyph extends above that. Need enough headroom.
+            let rad_ascent = size * 1.1 * 0.8; // approximate radical glyph visual top
+            let bar_top = c.ascent + size * 0.15;
             Dims {
                 width: rad_w + c.width + size * 0.1,
-                ascent: c.ascent + size * 0.15,
-                descent: c.descent + size * 0.1,
+                ascent: bar_top.max(rad_ascent),
+                descent: c.descent + size * 0.15,
             }
         }
 
