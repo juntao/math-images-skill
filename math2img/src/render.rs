@@ -84,6 +84,7 @@ impl Dims {
 enum DrawCmd {
     Glyph { x: f32, y: f32, ch: char, size: f32 },
     HLine { x: f32, y: f32, width: f32, thickness: f32 },
+    Line { x1: f32, y1: f32, x2: f32, y2: f32, thickness: f32 },
     Text { x: f32, y: f32, text: String, size: f32 },
 }
 
@@ -134,6 +135,9 @@ impl Renderer {
                 DrawCmd::HLine { x, y, width, thickness } => {
                     draw_hline(&mut img, *x, *y, *width, *thickness, fg);
                 }
+                DrawCmd::Line { x1, y1, x2, y2, thickness } => {
+                    draw_line(&mut img, *x1, *y1, *x2, *y2, *thickness, fg);
+                }
                 DrawCmd::Text { x, y, text, size } => {
                     draw_text_str(&font, &mut img, text, *x, *y, *size, fg);
                 }
@@ -181,7 +185,7 @@ fn measure(font: &FontRef, sf: &ab_glyph::PxScaleFont<&FontRef>, node: &MathNode
         MathNode::Space(em) => Dims { width: em * size, ascent: 0.0, descent: 0.0 },
 
         MathNode::Row(children) => {
-            let gap = size * 0.05;
+            let gap = size * 0.12;
             let mut w = 0.0f32;
             let mut asc = 0.0f32;
             let mut desc = 0.0f32;
@@ -207,7 +211,7 @@ fn measure(font: &FontRef, sf: &ab_glyph::PxScaleFont<&FontRef>, node: &MathNode
             let n = measure(font, &nsf, num, ns);
             let d = measure(font, &nsf, den, ns);
             let rule = size * 0.05;
-            let gap = size * 0.15;
+            let gap = size * 0.25;
             let axis_offset = size * 0.22;
             let w = n.width.max(d.width) + size * 0.3;
             Dims {
@@ -258,14 +262,17 @@ fn measure(font: &FontRef, sf: &ab_glyph::PxScaleFont<&FontRef>, node: &MathNode
 
         MathNode::Sqrt(content) => {
             let c = measure(font, sf, content, size);
-            let rad_w = size * 0.5;
-            // Overline bar drawn at c.ascent + size*0.1 above baseline;
-            // radical glyph extends above that. Need enough headroom.
-            let rad_ascent = size * 1.1 * 0.8; // approximate radical glyph visual top
-            let bar_top = c.ascent + size * 0.15;
+            // Radical drawn manually as lines. The diagonal stroke rises from
+            // the valley (below content) to the top of the overline bar.
+            // Hook width + main diagonal width = total radical width.
+            let hook_w = size * 0.15;
+            let diag_w = size * 0.35;
+            let rad_w = hook_w + diag_w;
+            let bar_gap = size * 0.3; // gap between content top and overline
+            let bar_top = c.ascent + bar_gap;
             Dims {
-                width: rad_w + c.width + size * 0.1,
-                ascent: bar_top.max(rad_ascent),
+                width: rad_w + c.width + size * 0.15,
+                ascent: bar_top,
                 descent: c.descent + size * 0.15,
             }
         }
@@ -298,9 +305,11 @@ fn measure(font: &FontRef, sf: &ab_glyph::PxScaleFont<&FontRef>, node: &MathNode
 
         MathNode::Delimited { content, .. } => {
             let c = measure(font, sf, content, size);
-            let dw = size * 0.25;
+            let ds = (c.height() + size * 0.2).min(size * 2.5);
+            let dw = ds * 0.3;
+            let inner_pad = size * 0.12;
             Dims {
-                width: c.width + dw * 2.0 + size * 0.1,
+                width: c.width + dw * 2.0 + inner_pad * 2.0,
                 ascent: c.ascent + size * 0.1,
                 descent: c.descent + size * 0.1,
             }
@@ -397,7 +406,7 @@ fn layout(
         MathNode::Space(_) => {}
 
         MathNode::Row(children) => {
-            let gap = size * 0.05;
+            let gap = size * 0.12;
             let mut cx = x;
             for (i, child) in children.iter().enumerate() {
                 if i > 0 {
@@ -418,7 +427,7 @@ fn layout(
             let nd = measure(font, &nsf, num, ns);
             let dd = measure(font, &nsf, den, ns);
             let rule_t = size * 0.05;
-            let gap = size * 0.15;
+            let gap = size * 0.25;
             let tw = nd.width.max(dd.width) + size * 0.3;
             // Math axis: slightly above baseline (approx x-height / 2)
             let axis = by - size * 0.22;
@@ -462,11 +471,33 @@ fn layout(
 
         MathNode::Sqrt(content) => {
             let cd = measure(font, sf, content, size);
-            let rw = size * 0.5;
+            let hook_w = size * 0.15;
+            let diag_w = size * 0.35;
+            let rw = hook_w + diag_w;
+            let bar_gap = size * 0.3;
             let rule_t = size * 0.05;
-            cmds.push(DrawCmd::Glyph { x, y: by, ch: '\u{221A}', size: size * 1.1 });
+            let stroke = size * 0.06;
+
+            // Key y-coordinates
+            let bar_y = by - cd.ascent - bar_gap;       // overline bar
+            let valley_y = by + cd.descent + size * 0.1; // bottom of V
+            let hook_y = valley_y - (valley_y - bar_y) * 0.25; // hook at ~25% up
+
+            // Hook: short line from top-left down to the valley
+            cmds.push(DrawCmd::Line {
+                x1: x, y1: hook_y,
+                x2: x + hook_w, y2: valley_y,
+                thickness: stroke * 0.7,
+            });
+            // Main diagonal: from valley up to the top-right (meets overline)
+            cmds.push(DrawCmd::Line {
+                x1: x + hook_w, y1: valley_y,
+                x2: x + rw, y2: bar_y,
+                thickness: stroke,
+            });
+            // Overline bar
             cmds.push(DrawCmd::HLine {
-                x: x + rw, y: by - cd.ascent - size * 0.1, width: cd.width + size * 0.1, thickness: rule_t,
+                x: x + rw, y: bar_y, width: cd.width + size * 0.15, thickness: rule_t,
             });
             layout(font, sf, content, size, x + rw, by, cmds);
         }
@@ -503,15 +534,16 @@ fn layout(
 
         MathNode::Delimited { left, right, content } => {
             let cd = measure(font, sf, content, size);
-            let dw = size * 0.25;
             let ds = (cd.height() + size * 0.2).min(size * 2.5);
+            let dw = ds * 0.3;
+            let inner_pad = size * 0.12;
             if *left != '\0' {
                 cmds.push(DrawCmd::Glyph { x, y: by, ch: *left, size: ds });
             }
-            layout(font, sf, content, size, x + dw + size * 0.05, by, cmds);
+            layout(font, sf, content, size, x + dw + inner_pad, by, cmds);
             if *right != '\0' {
                 cmds.push(DrawCmd::Glyph {
-                    x: x + dw + size * 0.05 + cd.width + size * 0.05,
+                    x: x + dw + inner_pad + cd.width + inner_pad,
                     y: by, ch: *right, size: ds,
                 });
             }
@@ -625,6 +657,39 @@ fn draw_hline(img: &mut ImageBuf, x: f32, y: f32, width: f32, thickness: f32, co
         for px in xs..xe {
             if px >= 0 && py >= 0 {
                 img.put_pixel(px as u32, py as u32, color, 255);
+            }
+        }
+    }
+}
+
+fn draw_line(img: &mut ImageBuf, x1: f32, y1: f32, x2: f32, y2: f32, thickness: f32, color: [u8; 4]) {
+    let dx = x2 - x1;
+    let dy = y2 - y1;
+    let len = (dx * dx + dy * dy).sqrt();
+    if len < 0.5 { return; }
+    // Normal vector perpendicular to the line, scaled to half-thickness
+    let nx = -dy / len * thickness / 2.0;
+    let ny = dx / len * thickness / 2.0;
+    // Bounding box of the thick line
+    let min_x = (x1 + nx).min(x1 - nx).min(x2 + nx).min(x2 - nx).floor() as i32;
+    let max_x = (x1 + nx).max(x1 - nx).max(x2 + nx).max(x2 - nx).ceil() as i32;
+    let min_y = (y1 + ny).min(y1 - ny).min(y2 + ny).min(y2 - ny).floor() as i32;
+    let max_y = (y1 + ny).max(y1 - ny).max(y2 + ny).max(y2 - ny).ceil() as i32;
+    for py in min_y..=max_y {
+        for px in min_x..=max_x {
+            if px < 0 || py < 0 { continue; }
+            let fx = px as f32 + 0.5;
+            let fy = py as f32 + 0.5;
+            // Distance along the line direction (0..len)
+            let along = (fx - x1) * dx / len + (fy - y1) * dy / len;
+            // Distance perpendicular to the line
+            let perp = ((fx - x1) * (-dy) / len + (fy - y1) * dx / len).abs();
+            // Inside the line segment (with small extension at ends)?
+            if along >= -0.5 && along <= len + 0.5 && perp <= thickness / 2.0 + 0.5 {
+                // Anti-alias based on perpendicular distance
+                let edge = (thickness / 2.0 + 0.5 - perp).min(1.0).max(0.0);
+                let alpha = (edge * 255.0) as u8;
+                img.put_pixel(px as u32, py as u32, color, alpha);
             }
         }
     }
